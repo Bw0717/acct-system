@@ -9,8 +9,14 @@ import {
   getIncomeHistory,
   IncomeRecord,
 } from './db'
+import { getEmployeesFromDB, getCollectionMethods } from './employees'
 
 export default async (req: VercelRequest, res: VercelResponse) => {
+  // 如果是獲取 options 端點，直接處理不需要認證
+  if (req.url?.includes('/options')) {
+    return handleOptions(req, res)
+  }
+
   // 執行認證中間件
   const authResult = await authMiddleware(req, res)
   if (!authResult.isAuthenticated) {
@@ -197,5 +203,40 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, currentUser
   } catch (error) {
     console.error('DELETE income error:', error)
     return res.status(500).json({ success: false, error: 'Failed to delete income record' })
+  }
+}
+
+/**
+ * GET /api/income/options
+ * 獲取下拉框選項（不需要認證）
+ */
+async function handleOptions(req: VercelRequest, res: VercelResponse) {
+  try {
+    const employees = await getEmployeesFromDB()
+    const collectionMethods = await getCollectionMethods()
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        employees: employees.map(emp => ({
+          label: emp.ENG_NAME || emp.CTW_NAME || emp.PERSONNEL,
+          value: emp.PERSONNEL
+        })),
+        collectionMethods: collectionMethods.map(method => ({
+          label: method,
+          value: method
+        }))
+      }
+    })
+  } catch (error) {
+    console.error('Options error:', error)
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch options',
+      data: {
+        employees: [],
+        collectionMethods: ['現金', '支票', '轉帳', '信用卡']
+      }
+    })
   }
 }

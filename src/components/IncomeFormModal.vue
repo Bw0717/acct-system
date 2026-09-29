@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="close">
+  <div class="modal-overlay">
     <div class="modal-content">
       <header class="modal-header">
         <h2>{{ isEdit ? '編輯收入記帳' : '新增收入記帳' }}</h2>
@@ -183,7 +183,7 @@
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="close">取消</button>
           <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
-            {{ isSubmitting ? '保存中...' : '保存' }}
+            {{ isSubmitting ? '儲存中...' : '儲存' }}
           </button>
         </div>
       </form>
@@ -307,6 +307,7 @@ const submitForm = async () => {
       emit('save')
       close()
     } else {
+      console.error('API Error:', result.error)
       alert('操作失敗: ' + (result.error || '未知錯誤'))
     }
   } catch (error) {

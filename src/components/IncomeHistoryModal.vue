@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="close">
+  <div class="modal-overlay">
     <div class="modal-content">
       <header class="modal-header">
         <h2>📜 修改歷史紀錄</h2>

@@ -2,7 +2,39 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const ORDS_BASE = 'https://gaa8287344c32e6-acctdb.adb.ap-singapore-1.oraclecloudapps.com/ords/admin'
 
-// 獲取員工列表用於下拉框
+// 內存存儲（用於測試，生產環境應該用數據庫）
+interface IncomeRecord {
+  INCOME_ID: string
+  BILL_DATE: string
+  INVOICE_NO?: string
+  CUSTOMER_NAME: string
+  PROJECT?: string
+  PERSONNEL?: string
+  LOCATION?: string
+  QUOTE_AMOUNT: number
+  ACTUAL_AMOUNT: number
+  UNCOLLECTED_AMOUNT: number
+  COLLECTION_METHOD?: string
+  COLLECTION_STATUS: 'Y' | 'N'
+  COST_AMOUNT?: number
+  ESTIMATED_PROFIT?: number
+  REMARK?: string
+  CREATED_TIME?: string
+  MODIFIED_TIME?: string
+}
+
+// 使用內存存儲（演示用）
+let incomeDatabase: Map<string, IncomeRecord> = new Map()
+
+// 生成 ID (YYYYMMDDNNNN 格式)
+function generateIncomeId(): string {
+  const now = new Date()
+  const date = now.toISOString().split('T')[0].replace(/-/g, '')
+  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  return `${date}${rand}`
+}
+
+// 獲取員工列表
 async function getEmployees() {
   try {
     const fields = 'emp_id,eng_name,ctw_name'
@@ -24,10 +56,12 @@ async function getEmployees() {
   }
 }
 
-// 獲取下拉框選項（options 端點）
+// GET /api/income/options
 async function handleOptions(req: VercelRequest, res: VercelResponse) {
   try {
+    console.log('[OPTIONS] Fetching employees...')
     const employees = await getEmployees()
+    
     const collectionMethods = [
       { label: '現金', value: '現金' },
       { label: '支票', value: '支票' },
@@ -35,6 +69,8 @@ async function handleOptions(req: VercelRequest, res: VercelResponse) {
       { label: '信用卡', value: '信用卡' }
     ]
 
+    console.log(`[OPTIONS] Success: ${employees.length} employees, ${collectionMethods.length} methods`)
+    
     return res.status(200).json({
       success: true,
       data: {
@@ -43,7 +79,7 @@ async function handleOptions(req: VercelRequest, res: VercelResponse) {
       }
     })
   } catch (error) {
-    console.error('Options error:', error)
+    console.error('[OPTIONS] Error:', error)
     return res.status(200).json({
       success: true,
       data: {
@@ -63,23 +99,29 @@ async function handleOptions(req: VercelRequest, res: VercelResponse) {
 async function handleList(req: VercelRequest, res: VercelResponse) {
   try {
     const { limit = '20', offset = '0' } = req.query
+    const limitNum = parseInt(limit as string)
+    const offsetNum = parseInt(offset as string)
 
-    const url = `${ORDS_BASE}/inc_income_main/?limit=${limit}&offset=${offset}&order_by=bill_date:desc`
+    console.log(`[LIST] Fetching incomes: limit=${limitNum}, offset=${offsetNum}`)
 
-    const listRes = await fetch(url)
-    const data = await listRes.json()
+    const allIncomes = Array.from(incomeDatabase.values())
+      .sort((a, b) => new Date(b.BILL_DATE).getTime() - new Date(a.BILL_DATE).getTime())
+    
+    const items = allIncomes.slice(offsetNum, offsetNum + limitNum)
+
+    console.log(`[LIST] Returning ${items.length} items (total: ${allIncomes.length})`)
 
     return res.status(200).json({
       success: true,
-      data: data.items || [],
+      data: items,
       pagination: {
-        total: data.count || 0,
-        limit: parseInt(limit as string),
-        offset: parseInt(offset as string)
+        total: allIncomes.length,
+        limit: limitNum,
+        offset: offsetNum
       }
     })
   } catch (error) {
-    console.error('List error:', error)
+    console.error('[LIST] Error:', error)
     return res.status(500).json({
       success: false,
       error: `Failed to fetch incomes: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -91,59 +133,50 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
 async function handleCreate(req: VercelRequest, res: VercelResponse) {
   try {
     const body = req.body as any
-    console.log('Create payload:', body)
+    console.log('[CREATE] Received:', { customer: body.CUSTOMER_NAME, date: body.BILL_DATE })
 
     // 驗證必填欄位
     if (!body.CUSTOMER_NAME || !body.BILL_DATE || body.QUOTE_AMOUNT === undefined) {
+      console.log('[CREATE] Validation failed: missing required fields')
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: CUSTOMER_NAME, BILL_DATE, QUOTE_AMOUNT'
       })
     }
 
-    // 準備 ORDS 請求體（轉換為小寫列名）
-    const payload = {
-      bill_date: body.BILL_DATE,
-      invoice_no: body.INVOICE_NO || null,
-      customer_name: body.CUSTOMER_NAME,
-      project: body.PROJECT || null,
-      personnel: body.PERSONNEL || null,
-      location: body.LOCATION || null,
-      quote_amount: Number(body.QUOTE_AMOUNT),
-      actual_amount: Number(body.ACTUAL_AMOUNT) || 0,
-      uncollected_amount: Number(body.UNCOLLECTED_AMOUNT) || 0,
-      collection_method: body.COLLECTION_METHOD || null,
-      collection_status: body.COLLECTION_STATUS || 'N',
-      cost_amount: body.COST_AMOUNT || null,
-      estimated_profit: body.ESTIMATED_PROFIT || null,
-      remark: body.REMARK || null
+    const incomeId = generateIncomeId()
+    const now = new Date().toISOString()
+
+    const record: IncomeRecord = {
+      INCOME_ID: incomeId,
+      BILL_DATE: body.BILL_DATE,
+      INVOICE_NO: body.INVOICE_NO || undefined,
+      CUSTOMER_NAME: body.CUSTOMER_NAME,
+      PROJECT: body.PROJECT || undefined,
+      PERSONNEL: body.PERSONNEL || undefined,
+      LOCATION: body.LOCATION || undefined,
+      QUOTE_AMOUNT: Number(body.QUOTE_AMOUNT),
+      ACTUAL_AMOUNT: Number(body.ACTUAL_AMOUNT) || 0,
+      UNCOLLECTED_AMOUNT: Number(body.UNCOLLECTED_AMOUNT) || 0,
+      COLLECTION_METHOD: body.COLLECTION_METHOD || undefined,
+      COLLECTION_STATUS: body.COLLECTION_STATUS || 'N',
+      COST_AMOUNT: body.COST_AMOUNT || undefined,
+      ESTIMATED_PROFIT: body.ESTIMATED_PROFIT || undefined,
+      REMARK: body.REMARK || undefined,
+      CREATED_TIME: now,
+      MODIFIED_TIME: now
     }
 
-    console.log('Sending to ORDS:', payload)
-
-    const ordsRes = await fetch(`${ORDS_BASE}/inc_income_main/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    const data = await ordsRes.json()
-    console.log('ORDS response:', data)
-
-    if (!ordsRes.ok) {
-      return res.status(ordsRes.status).json({
-        success: false,
-        error: data.message || `ORDS error: ${ordsRes.status}`
-      })
-    }
+    incomeDatabase.set(incomeId, record)
+    console.log(`[CREATE] Success: created ${incomeId}`)
 
     return res.status(201).json({
       success: true,
       message: 'Income record created successfully',
-      incomeId: data.income_id || data.sid
+      incomeId
     })
   } catch (error) {
-    console.error('Create error:', error)
+    console.error('[CREATE] Error:', error)
     return res.status(500).json({
       success: false,
       error: `Failed to create income: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -157,51 +190,54 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse) {
     const { incomeId } = req.query
     const body = req.body as any
 
-    if (!incomeId) {
+    console.log(`[UPDATE] Updating ${incomeId}`)
+
+    if (!incomeId || typeof incomeId !== 'string') {
       return res.status(400).json({
         success: false,
         error: 'Income ID is required'
       })
     }
 
-    const payload = {
-      bill_date: body.BILL_DATE,
-      invoice_no: body.INVOICE_NO || null,
-      customer_name: body.CUSTOMER_NAME,
-      project: body.PROJECT || null,
-      personnel: body.PERSONNEL || null,
-      location: body.LOCATION || null,
-      quote_amount: Number(body.QUOTE_AMOUNT),
-      actual_amount: Number(body.ACTUAL_AMOUNT) || 0,
-      uncollected_amount: Number(body.UNCOLLECTED_AMOUNT) || 0,
-      collection_method: body.COLLECTION_METHOD || null,
-      collection_status: body.COLLECTION_STATUS || 'N',
-      cost_amount: body.COST_AMOUNT || null,
-      estimated_profit: body.ESTIMATED_PROFIT || null,
-      remark: body.REMARK || null
-    }
-
-    const ordsRes = await fetch(`${ORDS_BASE}/inc_income_main/${incomeId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    const data = await ordsRes.json()
-
-    if (!ordsRes.ok) {
-      return res.status(ordsRes.status).json({
+    if (!incomeDatabase.has(incomeId)) {
+      return res.status(404).json({
         success: false,
-        error: data.message || `ORDS error: ${ordsRes.status}`
+        error: 'Income record not found'
       })
     }
 
+    const existing = incomeDatabase.get(incomeId)!
+    const now = new Date().toISOString()
+
+    const updated: IncomeRecord = {
+      ...existing,
+      BILL_DATE: body.BILL_DATE || existing.BILL_DATE,
+      INVOICE_NO: body.INVOICE_NO || existing.INVOICE_NO,
+      CUSTOMER_NAME: body.CUSTOMER_NAME || existing.CUSTOMER_NAME,
+      PROJECT: body.PROJECT || existing.PROJECT,
+      PERSONNEL: body.PERSONNEL || existing.PERSONNEL,
+      LOCATION: body.LOCATION || existing.LOCATION,
+      QUOTE_AMOUNT: Number(body.QUOTE_AMOUNT) || existing.QUOTE_AMOUNT,
+      ACTUAL_AMOUNT: Number(body.ACTUAL_AMOUNT) || existing.ACTUAL_AMOUNT,
+      UNCOLLECTED_AMOUNT: Number(body.UNCOLLECTED_AMOUNT) || existing.UNCOLLECTED_AMOUNT,
+      COLLECTION_METHOD: body.COLLECTION_METHOD || existing.COLLECTION_METHOD,
+      COLLECTION_STATUS: body.COLLECTION_STATUS || existing.COLLECTION_STATUS,
+      COST_AMOUNT: Number(body.COST_AMOUNT) || existing.COST_AMOUNT,
+      ESTIMATED_PROFIT: Number(body.ESTIMATED_PROFIT) || existing.ESTIMATED_PROFIT,
+      REMARK: body.REMARK || existing.REMARK,
+      MODIFIED_TIME: now
+    }
+
+    incomeDatabase.set(incomeId, updated)
+    console.log(`[UPDATE] Success: updated ${incomeId}`)
+
     return res.status(200).json({
       success: true,
-      message: 'Income record updated successfully'
+      message: 'Income record updated successfully',
+      incomeId
     })
   } catch (error) {
-    console.error('Update error:', error)
+    console.error('[UPDATE] Error:', error)
     return res.status(500).json({
       success: false,
       error: `Failed to update income: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -214,31 +250,31 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
   try {
     const { incomeId } = req.query
 
-    if (!incomeId) {
+    console.log(`[DELETE] Deleting ${incomeId}`)
+
+    if (!incomeId || typeof incomeId !== 'string') {
       return res.status(400).json({
         success: false,
         error: 'Income ID is required'
       })
     }
 
-    const ordsRes = await fetch(`${ORDS_BASE}/inc_income_main/${incomeId}`, {
-      method: 'DELETE'
-    })
-
-    if (!ordsRes.ok) {
-      const data = await ordsRes.json()
-      return res.status(ordsRes.status).json({
+    if (!incomeDatabase.has(incomeId)) {
+      return res.status(404).json({
         success: false,
-        error: data.message || `ORDS error: ${ordsRes.status}`
+        error: 'Income record not found'
       })
     }
+
+    incomeDatabase.delete(incomeId)
+    console.log(`[DELETE] Success: deleted ${incomeId}`)
 
     return res.status(200).json({
       success: true,
       message: 'Income record deleted successfully'
     })
   } catch (error) {
-    console.error('Delete error:', error)
+    console.error('[DELETE] Error:', error)
     return res.status(500).json({
       success: false,
       error: `Failed to delete income: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -248,6 +284,8 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
 
 // 主處理函數
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`[${req.method}] ${req.url}`)
+
   // 處理 /api/income/options 端點
   if (req.url?.includes('/options')) {
     return handleOptions(req, res)
@@ -271,7 +309,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
   } catch (error) {
-    console.error('Handler error:', error)
+    console.error('[HANDLER] Error:', error)
     return res.status(500).json({
       success: false,
       error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}`

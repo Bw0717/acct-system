@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 查詢 ACCTDB 下的 INC_INCOME_MAIN
     const result = await conn.execute(
-      `SELECT * FROM ACCTDB.INC_INCOME_MAIN WHERE ROWNUM <= 1`,
+      `SELECT * FROM ACCTDB.INC_INCOME_MAIN WHERE ROWNUM <= 5`,
       [],
       { outFormat: 3 }
     )

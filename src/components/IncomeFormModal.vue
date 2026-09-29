@@ -54,12 +54,16 @@
           </div>
           <div class="form-group">
             <label for="personnel">施作人員</label>
-            <input
+            <select
               id="personnel"
               v-model="formData.PERSONNEL"
-              type="text"
               class="input-field"
-            />
+            >
+              <option value="">-- 請選擇 --</option>
+              <option v-for="emp in employees" :key="emp.value" :value="emp.value">
+                {{ emp.label }}
+              </option>
+            </select>
           </div>
           <div class="form-group">
             <label for="location">地點</label>
@@ -153,13 +157,16 @@
         <div class="form-row">
           <div class="form-group">
             <label for="collectionMethod">收款方式</label>
-            <input
+            <select
               id="collectionMethod"
               v-model="formData.COLLECTION_METHOD"
-              type="text"
               class="input-field"
-              placeholder="現金/支票/轉帳"
-            />
+            >
+              <option value="">-- 請選擇 --</option>
+              <option v-for="method in collectionMethods" :key="method.value" :value="method.value">
+                {{ method.label }}
+              </option>
+            </select>
           </div>
           <div class="form-group full-width">
             <label for="remark">備註</label>
@@ -185,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 interface IncomeRecord {
   INCOME_ID?: string
@@ -217,6 +224,9 @@ const emit = defineEmits<{
 const isSubmitting = ref(false)
 const isEdit = computed(() => !!props.income?.INCOME_ID)
 
+const employees = ref<Array<{ label: string; value: string }>>([])
+const collectionMethods = ref<Array<{ label: string; value: string }>>([])
+
 const formData = ref<IncomeRecord>({
   BILL_DATE: '',
   CUSTOMER_NAME: '',
@@ -224,6 +234,33 @@ const formData = ref<IncomeRecord>({
   ACTUAL_AMOUNT: 0,
   UNCOLLECTED_AMOUNT: 0,
   COLLECTION_STATUS: 'N',
+})
+
+// 加載員工和收款方式
+const loadOptions = async () => {
+  try {
+    const response = await fetch('/api/income/options')
+    const result = await response.json()
+    
+    if (result.success && result.data) {
+      employees.value = result.data.employees || []
+      collectionMethods.value = result.data.collectionMethods || []
+    }
+  } catch (error) {
+    console.error('Failed to load options:', error)
+    // 使用默認值
+    collectionMethods.value = [
+      { label: '現金', value: '現金' },
+      { label: '支票', value: '支票' },
+      { label: '轉帳', value: '轉帳' },
+      { label: '信用卡', value: '信用卡' }
+    ]
+  }
+}
+
+// 組件掛載時加載選項
+onMounted(() => {
+  loadOptions()
 })
 
 watch(

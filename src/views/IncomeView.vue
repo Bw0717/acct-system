@@ -198,15 +198,26 @@ const loadIncomes = async () => {
     }
 
     const response = await fetch(`/api/income?${params}`)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('API Error:', response.status, errorText)
+      alert(`載入失敗: ${response.status}`)
+      return
+    }
+    
     const result = await response.json()
 
     if (result.success) {
-      incomes.value = result.data
-      totalRecords.value = result.pagination.total
+      incomes.value = result.data || []
+      totalRecords.value = result.pagination?.total || 0
+    } else {
+      console.error('API returned error:', result.error)
+      alert(`載入失敗: ${result.error || '未知錯誤'}`)
     }
   } catch (error) {
     console.error('Failed to load incomes:', error)
-    alert('載入數據失敗')
+    alert(`載入數據失敗: ${error instanceof Error ? error.message : '未知錯誤'}`)
   }
 }
 

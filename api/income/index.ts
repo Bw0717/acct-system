@@ -34,66 +34,7 @@ function generateIncomeId(): string {
   return `${date}${rand}`
 }
 
-// 獲取員工列表
-async function getEmployees() {
-  try {
-    const fields = 'emp_id,eng_name,ctw_name'
-    const res = await fetch(`${ORDS_BASE}/employees/?fields=${fields}&limit=500`)
-    
-    if (!res.ok) {
-      console.error('Employees API error:', res.status)
-      return []
-    }
-    
-    const data = await res.json()
-    return data.items?.map((item: any) => ({
-      label: item.eng_name || item.ctw_name || item.emp_id,
-      value: item.emp_id
-    })) || []
-  } catch (err) {
-    console.error('Error fetching employees:', err)
-    return []
-  }
-}
 
-// GET /api/income/options
-async function handleOptions(req: VercelRequest, res: VercelResponse) {
-  try {
-    console.log('[OPTIONS] Fetching employees...')
-    const employees = await getEmployees()
-    
-    const collectionMethods = [
-      { label: '現金', value: '現金' },
-      { label: '支票', value: '支票' },
-      { label: '轉帳', value: '轉帳' },
-      { label: '信用卡', value: '信用卡' }
-    ]
-
-    console.log(`[OPTIONS] Success: ${employees.length} employees, ${collectionMethods.length} methods`)
-    
-    return res.status(200).json({
-      success: true,
-      data: {
-        employees,
-        collectionMethods
-      }
-    })
-  } catch (error) {
-    console.error('[OPTIONS] Error:', error)
-    return res.status(200).json({
-      success: true,
-      data: {
-        employees: [],
-        collectionMethods: [
-          { label: '現金', value: '現金' },
-          { label: '支票', value: '支票' },
-          { label: '轉帳', value: '轉帳' },
-          { label: '信用卡', value: '信用卡' }
-        ]
-      }
-    })
-  }
-}
 
 // GET /api/income - 列表查詢
 async function handleList(req: VercelRequest, res: VercelResponse) {
@@ -285,11 +226,6 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
 // 主處理函數
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log(`[${req.method}] ${req.url}`)
-
-  // 處理 /api/income/options 端點
-  if (req.url?.includes('/options')) {
-    return handleOptions(req, res)
-  }
 
   try {
     const method = req.method || 'GET'

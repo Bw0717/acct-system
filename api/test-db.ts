@@ -9,9 +9,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     conn = await getConnection()
     console.log('[TEST-DB] ✅ 連接成功')
 
-    // 查詢 ACCTDB 下的 INC_INCOME_MAIN
+    // 查詢 ADMIN 下的 INC_INCOME_MAIN
     const result = await conn.execute(
-      `SELECT * FROM ACCTDB.INC_INCOME_MAIN WHERE ROWNUM <= 5`,
+      `SELECT * FROM ADMIN.INC_INCOME_MAIN WHERE ROWNUM <= 5`,
       [],
       { outFormat: 3 }
     )

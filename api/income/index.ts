@@ -23,7 +23,7 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
     
     // 查詢總數
     const countResult = await conn.execute(
-      'SELECT COUNT(*) as total FROM ACCTDB.INC_INCOME_MAIN',
+      'SELECT COUNT(*) as total FROM ADMIN.INC_INCOME_MAIN',
       [],
       { outFormat: 3 }
     )
@@ -31,7 +31,7 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
 
     // 查詢數據
     const result = await conn.execute(
-      `SELECT * FROM ACCTDB.INC_INCOME_MAIN 
+      `SELECT * FROM ADMIN.INC_INCOME_MAIN 
        ORDER BY BILL_DATE DESC 
        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`,
       { offset: offsetNum, limit: limitNum },
@@ -89,7 +89,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     conn = await getConnection()
 
     const result = await conn.execute(
-      `INSERT INTO ACCTDB.INC_INCOME_MAIN (
+      `INSERT INTO ADMIN.INC_INCOME_MAIN (
         INCOME_ID, BILL_DATE, INVOICE_NO, CUSTOMER_NAME, PROJECT, PERSONNEL,
         LOCATION, QUOTE_AMOUNT, ACTUAL_AMOUNT, UNCOLLECTED_AMOUNT,
         COLLECTION_METHOD, COLLECTION_STATUS, COST_AMOUNT, ESTIMATED_PROFIT,
@@ -169,7 +169,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse) {
 
     // 檢查記錄是否存在
     const checkResult = await conn.execute(
-      'SELECT INCOME_ID FROM ACCTDB.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
+      'SELECT INCOME_ID FROM ADMIN.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
       { income_id: incomeId }
     )
 
@@ -182,7 +182,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse) {
 
     // 更新記錄
     await conn.execute(
-      `UPDATE ACCTDB.INC_INCOME_MAIN SET
+      `UPDATE ADMIN.INC_INCOME_MAIN SET
         BILL_DATE = :bill_date,
         INVOICE_NO = :invoice_no,
         CUSTOMER_NAME = :customer_name,
@@ -265,7 +265,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
 
     // 檢查記錄是否存在
     const checkResult = await conn.execute(
-      'SELECT INCOME_ID FROM ACCTDB.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
+      'SELECT INCOME_ID FROM ADMIN.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
       { income_id: incomeId }
     )
 
@@ -278,7 +278,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
 
     // 刪除記錄
     await conn.execute(
-      'DELETE FROM ACCTDB.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
+      'DELETE FROM ADMIN.INC_INCOME_MAIN WHERE INCOME_ID = :income_id',
       { income_id: incomeId },
       { autoCommit: true }
     )

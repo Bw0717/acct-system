@@ -99,7 +99,7 @@ import { ref, onMounted } from 'vue'
 
 interface IncomeRecord {
   INCOME_ID: string
-  BILL_DATE?: Date
+  BILL_DATE?: Date | string
   INVOICE_NO?: string
   CUSTOMER_NAME?: string
   PROJECT?: string
@@ -114,7 +114,7 @@ interface IncomeRecord {
   ESTIMATED_PROFIT?: number
   REMARK?: string
   MOTIFER?: string
-  MOTIFY_TIME?: Date
+  MOTIFY_TIME?: Date | string
 }
 
 const props = defineProps<{

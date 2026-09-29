@@ -130,7 +130,7 @@ import IncomeHistoryModal from '../components/IncomeHistoryModal.vue'
 
 interface IncomeRecord {
   INCOME_ID: string
-  BILL_DATE: Date
+  BILL_DATE: string | Date
   INVOICE_NO?: string
   CUSTOMER_NAME: string
   PROJECT?: string
@@ -144,13 +144,13 @@ interface IncomeRecord {
   COST_AMOUNT?: number
   ESTIMATED_PROFIT?: number
   REMARK?: string
-  MOTIFY_TIME?: Date
+  MOTIFY_TIME?: Date | string
 }
 
 const incomes = ref<IncomeRecord[]>([])
 const showFormModal = ref(false)
 const showHistoryModal = ref(false)
-const selectedIncome = ref<IncomeRecord | null>(null)
+const selectedIncome = ref<any>(null)
 const selectedIncomeId = ref('')
 const totalRecords = ref(0)
 const limit = ref(20)
@@ -216,7 +216,14 @@ const openNewModal = () => {
 }
 
 const editIncome = (income: IncomeRecord) => {
-  selectedIncome.value = income
+  // 轉換日期為字符串格式供表單使用
+  const formattedIncome: any = {
+    ...income,
+    BILL_DATE: typeof income.BILL_DATE === 'string' 
+      ? income.BILL_DATE.split('T')[0]
+      : new Date(income.BILL_DATE).toISOString().split('T')[0]
+  }
+  selectedIncome.value = formattedIncome
   showFormModal.value = true
 }
 
